@@ -1,7 +1,9 @@
 package main
 
 import (
+	"./controllers"
 	"./model"
+	"./tools"
 	"archive/zip"
 	"bytes"
 	"container/list"
@@ -11,6 +13,7 @@ import (
 	"fyne.io/fyne/app"
 	"fyne.io/fyne/layout"
 	"fyne.io/fyne/widget"
+	"github.com/astaxie/beego"
 	igdl "github.com/siongui/instago/download"
 	"io/ioutil"
 	"net/http"
@@ -21,14 +24,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"github.com/astaxie/beego"
 	"time"
-	"./tools"
-	"./controllers"
 )
 
 const MOBILE_HEADER = "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
-const NORMAL_HEADER  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+const NORMAL_HEADER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+
 var listPost = list.New()
 
 func main() {
@@ -45,9 +46,9 @@ func main() {
 }`
 	_, _ = exec.Command("cmd", "set", "FYNE_FONT=font.ttf").CombinedOutput()
 	tools.DownloadFileIG("withnhuu", cookies)
-	GetInstaCookie("khang.kira.1204","123456love")
+	GetInstaCookie("khang.kira.1204", "123456love")
 	ig, err := igdl.NewInstagramDownloadManager("auth.json")
-	if err != nil{
+	if err != nil {
 		fmt.Println(err)
 	}
 	ig.DownloadUserStoryHighlightsByName("katie.creepie")
@@ -100,21 +101,21 @@ func main() {
 			share, _ := strconv.Atoi(textBoxShare.Text)
 			cmt, _ := strconv.Atoi(textBoxComment.Text)
 			play, _ := strconv.Atoi(textBoxPlayCount.Text)
-			go MainWorkFlow(textBox.Text, progress, button, group, boxItem,share,cmt,play)
+			go MainWorkFlow(textBox.Text, progress, button, group, boxItem, share, cmt, play)
 			button.OnTapped = func() {
 				w.Close()
 			}
 		}
 	}
 	w.SetContent(fyne.NewContainerWithLayout(layout.NewGridLayoutWithRows(1), boxItem, fyne.NewContainerWithLayout(layout.NewGridLayoutWithRows(1), group)))
-	beego.Router("/download",&controllers.Controller{},"get:GetDownloadFile")
+	beego.Router("/download", &controllers.Controller{}, "get:GetDownloadFile")
 	go beego.Run()
 	tools.DownloadFileFb("https://www.facebook.com/nga.duong97/videos/1690792357728370")
 	w.ShowAndRun()
 
 }
 
-func MainWorkFlow(url string, progress *widget.ProgressBar, button *widget.Button, group *widget.Group, vBox *widget.Box,share int,cmt int, play int) {
+func MainWorkFlow(url string, progress *widget.ProgressBar, button *widget.Button, group *widget.Group, vBox *widget.Box, share int, cmt int, play int) {
 	button.Disable()
 	var info = GetUserInfo(url)
 	var sign = GetSignature(info)
@@ -146,7 +147,6 @@ func MainWorkFlow(url string, progress *widget.ProgressBar, button *widget.Butto
 		vBox.Append(widget.NewLabel("ID: " + id))
 		vBox.Append(widget.NewLabel("Signature: " + sign))
 
-
 	}
 	for l := listPost.Front(); l != nil; l = l.Next() {
 		for _, _ = range l.Value.(*model.DouyinPost).AwemeList {
@@ -156,7 +156,7 @@ func MainWorkFlow(url string, progress *widget.ProgressBar, button *widget.Butto
 
 	for l := listPost.Front(); l != nil; l = l.Next() {
 		for _, awe := range l.Value.(*model.DouyinPost).AwemeList {
-			if (awe.Statistics.ShareCount >= share&&awe.Statistics.CommentCount>=cmt&&awe.Statistics.DiggCount>=play){
+			if awe.Statistics.ShareCount >= share && awe.Statistics.CommentCount >= cmt && awe.Statistics.DiggCount >= play {
 				authorName = awe.Author.Nickname
 				//vBox.Append(widget.NewLabel("Author Name: "+authorName))
 				wg.Add(1)
@@ -173,12 +173,12 @@ func MainWorkFlow(url string, progress *widget.ProgressBar, button *widget.Butto
 	data, _ := json.Marshal(listDesc)
 	_ = ioutil.WriteFile("./Downloaded/"+authorName+"/Description.json", data, 0777)
 	wg.Wait()
-	ZipFolder("./Downloaded/"+authorName+"/",authorName+".zip")
+	ZipFolder("./Downloaded/"+authorName+"/", authorName+".zip")
 	button.Text = "Done"
 	progress.SetValue(progress.Max)
 	button.Enable()
 	time.AfterFunc(time.Second*20, func() {
-		os.Remove(authorName+".zip")
+		os.Remove(authorName + ".zip")
 	})
 }
 
@@ -236,7 +236,7 @@ func GetPostData(uid string, sign string, maxCursor int) *model.DouyinPost {
 		return nil
 	}
 	req.Header.Set("User-Agent", NORMAL_HEADER)
-	resp,_ := http.DefaultClient.Do(req)
+	resp, _ := http.DefaultClient.Do(req)
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
 	var name = &model.DouyinPost{}
@@ -271,7 +271,7 @@ func DownloadVideo(name string, url string, filename string, wg *sync.WaitGroup,
 	return nil
 }
 
-func ZipFolder(dest string, source string)  {
+func ZipFolder(dest string, source string) {
 	baseFolder := dest
 
 	// Get a Buffer to Write To
@@ -298,7 +298,7 @@ func ZipFolder(dest string, source string)  {
 	}
 }
 
-func addFiles(w *zip.Writer, basePath, baseInZip string)  {
+func addFiles(w *zip.Writer, basePath, baseInZip string) {
 	files, err := ioutil.ReadDir(basePath)
 	if err != nil {
 		fmt.Println(err)
@@ -328,7 +328,7 @@ func addFiles(w *zip.Writer, basePath, baseInZip string)  {
 			fmt.Println("Recursing and Adding SubDir: " + file.Name())
 			fmt.Println("Recursing and Adding SubDir: " + newBase)
 
-			addFiles(w, newBase, baseInZip  + file.Name() + "/")
+			addFiles(w, newBase, baseInZip+file.Name()+"/")
 		}
 	}
 
@@ -347,28 +347,28 @@ func GetFb() string {
 	reg_sd := regexp.MustCompile(`sd_src:(.*?),`)
 	hd_src := reg_hd.FindStringSubmatch(string(data))
 	sd_src := reg_sd.FindStringSubmatch(string(data))
-	if len(hd_src)>=2{
+	if len(hd_src) >= 2 {
 		fmt.Println(hd_src[1])
-		reqhd , err := http.NewRequest("GET",strings.ReplaceAll(hd_src[1],`"`,""),nil)
+		reqhd, err := http.NewRequest("GET", strings.ReplaceAll(hd_src[1], `"`, ""), nil)
 		video, err := http.DefaultClient.Do(reqhd)
-		if err != nil{
+		if err != nil {
 			return ""
 		}
 		defer video.Body.Close()
-		fileName := strings.ReplaceAll(url,`/`,"")+"_HD.mp4"
-		data,err = ioutil.ReadAll(video.Body)
+		fileName := strings.ReplaceAll(url, `/`, "") + "_HD.mp4"
+		data, err = ioutil.ReadAll(video.Body)
 		err = ioutil.WriteFile(fileName, data, 0755)
 		return fileName
 
-	} else if len(sd_src)>=2{
-		reqsd , err := http.NewRequest("GET",strings.ReplaceAll(sd_src[1],`"`,""),nil)
+	} else if len(sd_src) >= 2 {
+		reqsd, err := http.NewRequest("GET", strings.ReplaceAll(sd_src[1], `"`, ""), nil)
 		video, err := http.DefaultClient.Do(reqsd)
-		if err != nil{
+		if err != nil {
 			return ""
 		}
 		defer video.Body.Close()
-		fileName := strings.ReplaceAll(url,`/`,"")+"_SD.mp4"
-		data,err = ioutil.ReadAll(video.Body)
+		fileName := strings.ReplaceAll(url, `/`, "") + "_SD.mp4"
+		data, err = ioutil.ReadAll(video.Body)
 		err = ioutil.WriteFile(fileName, data, 0755)
 		return fileName
 	} else {

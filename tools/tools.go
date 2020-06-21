@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"../model"
 	"archive/zip"
 	"bytes"
 	"container/list"
@@ -16,43 +17,44 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"../model"
 )
 
 type DeleteChan struct {
-	Delete chan  string
+	Delete chan string
 }
 
 type Req struct {
 	Username string `json:"username"`
-	Cookies string `json:"cookies"`
-	Url string `json:"url"`
-	Kind int `json:"kind"`
-	Share int `json:"share"`
-	Cmt int `json:"cmt"`
-	Play int `json:"play"`
+	Cookies  string `json:"cookies"`
+	Url      string `json:"url"`
+	Kind     int    `json:"kind"`
+	Share    int    `json:"share"`
+	Cmt      int    `json:"cmt"`
+	Play     int    `json:"play"`
 }
 type ErrorRes struct {
-	Code int `json:"code"`
+	Code    int    `json:"code"`
 	Message string `json:"message"`
 }
 type Info struct {
 	AuthorName string `json:"author_name"`
-	Id string `json:"id"`
-	Follow int `json:"follow"`
-	Region string `json:"region"`
-	Sign string `json:"sign"`
-	State int `json:"state"`
-	Result string `json:"result"`
-	Total int `json:"total"`
-	Progress int `json:"progress"`
+	Id         string `json:"id"`
+	Follow     int    `json:"follow"`
+	Region     string `json:"region"`
+	Sign       string `json:"sign"`
+	State      int    `json:"state"`
+	Result     string `json:"result"`
+	Total      int    `json:"total"`
+	Progress   int    `json:"progress"`
 }
+
 const MOBILE_HEADER = "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
-const NORMAL_HEADER  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+const NORMAL_HEADER = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+
 var listPost = list.New()
 
 func MainWorkFlow(data *Req, ws *websocket.Conn, mutex *sync.Mutex) string {
-	if data.Url == ""{
+	if data.Url == "" {
 		_ = ws.WriteJSON(&ErrorRes{
 			Code:    400,
 			Message: "Bad request url",
@@ -63,7 +65,7 @@ func MainWorkFlow(data *Req, ws *websocket.Conn, mutex *sync.Mutex) string {
 	var sign = GetSignature(link)
 	var maxCursor = 0
 	post := GetPostData(link.Uid, sign.Signature, maxCursor)
-	if(fileExists("./Downloaded/"+post.AwemeList[0].Author.Nickname +".zip")){
+	if fileExists("./Downloaded/" + post.AwemeList[0].Author.Nickname + ".zip") {
 		var res = &Info{
 			AuthorName: post.AwemeList[0].Author.Nickname,
 			Id:         post.AwemeList[0].Author.ShortID,
@@ -71,7 +73,7 @@ func MainWorkFlow(data *Req, ws *websocket.Conn, mutex *sync.Mutex) string {
 			Region:     post.AwemeList[0].Author.Region,
 			Sign:       post.AwemeList[0].Author.Signature,
 			State:      2,
-			Result:    "http://localhost:8080/download?kind=1&file="+ post.AwemeList[0].Author.Nickname +".zip",
+			Result:     "http://localhost:8080/download?kind=1&file=" + post.AwemeList[0].Author.Nickname + ".zip",
 			Total:      0,
 			Progress:   0,
 		}
@@ -97,19 +99,19 @@ func MainWorkFlow(data *Req, ws *websocket.Conn, mutex *sync.Mutex) string {
 		var region = listPost.Front().Value.(*model.DouyinPost).AwemeList[0].Author.Region
 		var id = listPost.Front().Value.(*model.DouyinPost).AwemeList[0].Author.ShortID
 		var sign = listPost.Front().Value.(*model.DouyinPost).AwemeList[0].Author.Signature
-		 info = Info{
+		info = Info{
 			AuthorName: authorName,
 			Id:         id,
 			Follow:     follow,
 			Region:     region,
 			Sign:       sign,
-			State:		0,
+			State:      0,
 		}
 	}
-	totalVideo :=0
+	totalVideo := 0
 	for l := listPost.Front(); l != nil; l = l.Next() {
 		for _, awe := range l.Value.(*model.DouyinPost).AwemeList {
-			if (awe.Statistics.ShareCount >= data.Share&&awe.Statistics.CommentCount>=data.Cmt&&awe.Statistics.DiggCount>=data.Play) {
+			if awe.Statistics.ShareCount >= data.Share && awe.Statistics.CommentCount >= data.Cmt && awe.Statistics.DiggCount >= data.Play {
 				totalVideo++
 			}
 		}
@@ -118,11 +120,11 @@ func MainWorkFlow(data *Req, ws *websocket.Conn, mutex *sync.Mutex) string {
 
 	for l := listPost.Front(); l != nil; l = l.Next() {
 		for _, awe := range l.Value.(*model.DouyinPost).AwemeList {
-			if (awe.Statistics.ShareCount >= data.Share&&awe.Statistics.CommentCount>=data.Cmt&&awe.Statistics.DiggCount>=data.Play){
+			if awe.Statistics.ShareCount >= data.Share && awe.Statistics.CommentCount >= data.Cmt && awe.Statistics.DiggCount >= data.Play {
 				authorName = awe.Author.Nickname
 				//vBox.Append(widget.NewLabel("Author Name: "+authorName))
 				wg.Add(1)
-				go DownloadVideo(awe.Author.Nickname, awe.Video.PlayAddr.URLList[0], awe.AwemeID,&wg,ws,&info, mutex)
+				go DownloadVideo(awe.Author.Nickname, awe.Video.PlayAddr.URLList[0], awe.AwemeID, &wg, ws, &info, mutex)
 				var desc = &model.Description{
 					Id:   awe.AwemeID,
 					Desc: awe.Desc,
@@ -132,15 +134,15 @@ func MainWorkFlow(data *Req, ws *websocket.Conn, mutex *sync.Mutex) string {
 		}
 	}
 	byteData, _ := json.Marshal(listDesc)
-	var path = "./Downloaded/"+authorName +"/"
+	var path = "./Downloaded/" + authorName + "/"
 	_ = ioutil.WriteFile(path+"Description.json", byteData, 0777)
 	wg.Wait()
-	ZipFolder(path,"./Downloaded/"+authorName+".zip")
+	ZipFolder(path, "./Downloaded/"+authorName+".zip")
 	info.State = 2
-	info.Result = "http://localhost:8080/download?kind=1&file="+ authorName+".zip"
+	info.Result = "http://localhost:8080/download?kind=1&file=" + authorName + ".zip"
 	_ = ws.WriteJSON(info)
 	_ = os.RemoveAll(path)
-	return "./Downloaded/"+authorName+".zip"
+	return "./Downloaded/" + authorName + ".zip"
 
 }
 
@@ -198,7 +200,7 @@ func GetPostData(uid string, sign string, maxCursor int) *model.DouyinPost {
 		return nil
 	}
 	req.Header.Set("User-Agent", NORMAL_HEADER)
-	resp,_ := http.DefaultClient.Do(req)
+	resp, _ := http.DefaultClient.Do(req)
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
 	var name = &model.DouyinPost{}
@@ -236,7 +238,7 @@ func DownloadVideo(name string, url string, filename string, wg *sync.WaitGroup,
 	return nil
 }
 
-func ZipFolder(dest string, source string)  {
+func ZipFolder(dest string, source string) {
 	baseFolder := dest
 
 	// Get a Buffer to Write To
@@ -263,7 +265,7 @@ func ZipFolder(dest string, source string)  {
 	}
 }
 
-func addFiles(w *zip.Writer, basePath, baseInZip string)  {
+func addFiles(w *zip.Writer, basePath, baseInZip string) {
 	files, err := ioutil.ReadDir(basePath)
 	if err != nil {
 		fmt.Println(err)
@@ -292,7 +294,7 @@ func addFiles(w *zip.Writer, basePath, baseInZip string)  {
 			fmt.Println("Recursing and Adding SubDir: " + file.Name())
 			fmt.Println("Recursing and Adding SubDir: " + newBase)
 
-			addFiles(w, newBase, baseInZip  + file.Name() + "/")
+			addFiles(w, newBase, baseInZip+file.Name()+"/")
 		}
 	}
 
@@ -311,28 +313,28 @@ func GetFb() string {
 	reg_sd := regexp.MustCompile(`sd_src:(.*?),`)
 	hd_src := reg_hd.FindStringSubmatch(string(data))
 	sd_src := reg_sd.FindStringSubmatch(string(data))
-	if len(hd_src)>=2{
+	if len(hd_src) >= 2 {
 		fmt.Println(hd_src[1])
-		reqhd , err := http.NewRequest("GET",strings.ReplaceAll(hd_src[1],`"`,""),nil)
+		reqhd, err := http.NewRequest("GET", strings.ReplaceAll(hd_src[1], `"`, ""), nil)
 		video, err := http.DefaultClient.Do(reqhd)
-		if err != nil{
+		if err != nil {
 			return ""
 		}
 		defer video.Body.Close()
-		fileName := strings.ReplaceAll(url,`/`,"")+"_HD.mp4"
-		data,err = ioutil.ReadAll(video.Body)
+		fileName := strings.ReplaceAll(url, `/`, "") + "_HD.mp4"
+		data, err = ioutil.ReadAll(video.Body)
 		err = ioutil.WriteFile(fileName, data, 0755)
 		return fileName
 
-	} else if len(sd_src)>=2{
-		reqsd , err := http.NewRequest("GET",strings.ReplaceAll(sd_src[1],`"`,""),nil)
+	} else if len(sd_src) >= 2 {
+		reqsd, err := http.NewRequest("GET", strings.ReplaceAll(sd_src[1], `"`, ""), nil)
 		video, err := http.DefaultClient.Do(reqsd)
-		if err != nil{
+		if err != nil {
 			return ""
 		}
 		defer video.Body.Close()
-		fileName := strings.ReplaceAll(url,`/`,"")+"_SD.mp4"
-		data,err = ioutil.ReadAll(video.Body)
+		fileName := strings.ReplaceAll(url, `/`, "") + "_SD.mp4"
+		data, err = ioutil.ReadAll(video.Body)
 		err = ioutil.WriteFile(fileName, data, 0755)
 		return fileName
 	} else {
@@ -341,7 +343,7 @@ func GetFb() string {
 
 }
 
-func GetInstaCookie(username string, password string) (int ,string,int64) {
+func GetInstaCookie(username string, password string) (int, string, int64) {
 	url := "https://www.instagram.com/accounts/login/ajax/"
 	var params = []byte(fmt.Sprintf(`username=%s&password=%s&queryParams={}`, username, password))
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(params))
@@ -359,7 +361,7 @@ func GetInstaCookie(username string, password string) (int ,string,int64) {
 	defer resp.Body.Close()
 
 	fmt.Println("response Cookies:", resp.Cookies())
-	return 1,"",7
+	return 1, "", 7
 }
 
 func fileExists(filename string) bool {
@@ -370,20 +372,19 @@ func fileExists(filename string) bool {
 	return !info.IsDir()
 }
 
-func DownloadFileIG(user string, cookies string) (string,error) {
+func DownloadFileIG(user string, cookies string) (string, error) {
 	ig, err := igdl.NewInstagramDownloadManager(cookies)
-	if err != nil{
-		return "",  err
-	}
-	err = ig.DownloadUserStoryHighlightsByName(user)
-	if err != nil{
+	if err != nil {
 		return "", err
 	}
-	ZipFolder("Instagram/"+user+"/","File/Instagram/"+user+".zip")
+	err = ig.DownloadUserStoryHighlightsByName(user)
+	if err != nil {
+		return "", err
+	}
+	ZipFolder("Instagram/"+user+"/", "File/Instagram/"+user+".zip")
 	_ = os.RemoveAll("Instagram/" + user)
-	return user+".zip",nil
+	return user + ".zip", nil
 }
-
 
 func DownloadFileFb(link string) string {
 	url := link
@@ -398,28 +399,28 @@ func DownloadFileFb(link string) string {
 	reg_sd := regexp.MustCompile(`sd_src:(.*?),`)
 	hd_src := reg_hd.FindStringSubmatch(string(data))
 	sd_src := reg_sd.FindStringSubmatch(string(data))
-	if len(hd_src)>=2{
+	if len(hd_src) >= 2 {
 		fmt.Println(hd_src[1])
-		reqhd , err := http.NewRequest("GET",strings.ReplaceAll(hd_src[1],`"`,""),nil)
+		reqhd, err := http.NewRequest("GET", strings.ReplaceAll(hd_src[1], `"`, ""), nil)
 		video, err := http.DefaultClient.Do(reqhd)
-		if err != nil{
+		if err != nil {
 			return ""
 		}
 		defer video.Body.Close()
-		fileName := strings.ReplaceAll(url,`/`,"")+"_HD.mp4"
-		data,err = ioutil.ReadAll(video.Body)
+		fileName := strings.ReplaceAll(url, `/`, "") + "_HD.mp4"
+		data, err = ioutil.ReadAll(video.Body)
 		err = ioutil.WriteFile("File/Facebook/"+fileName, data, 0755)
 		return fileName
 
-	} else if len(sd_src)>=2{
-		reqsd , err := http.NewRequest("GET",strings.ReplaceAll(sd_src[1],`"`,""),nil)
+	} else if len(sd_src) >= 2 {
+		reqsd, err := http.NewRequest("GET", strings.ReplaceAll(sd_src[1], `"`, ""), nil)
 		video, err := http.DefaultClient.Do(reqsd)
-		if err != nil{
+		if err != nil {
 			return ""
 		}
 		defer video.Body.Close()
-		fileName := strings.ReplaceAll(url,`/`,"")+"_SD.mp4"
-		data,err = ioutil.ReadAll(video.Body)
+		fileName := strings.ReplaceAll(url, `/`, "") + "_SD.mp4"
+		data, err = ioutil.ReadAll(video.Body)
 		err = ioutil.WriteFile("File/Facebook/"+fileName, data, 0755)
 		return fileName
 	} else {
